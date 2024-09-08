@@ -21,7 +21,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
 
     public bool yasam = true;
     public int asker_tipi;
-    public bool saldırıyor = false;
+    public bool saldiriyor = false;
 
     public Animator animator;
     public GameObject closestObject;
@@ -136,7 +136,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
         navMeshAgent.SetDestination(this.gameObject.transform.position);
         if (closestObject != null)
         {
-            saldırıyor = true;
+            saldiriyor = true;
             string randomAttackAnim;
 
             if (yasam)
@@ -198,7 +198,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
                 //animator.ResetTrigger(animator.GetCurrentAnimatorStateInfo(0).IsName());
                 StartCoroutine(Dead());
             }
-            saldırıyor = false;
+            saldiriyor = false;
         }
         else
         {
@@ -226,7 +226,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
         Look();
         distance = (transform.position - closestObject.transform.position).sqrMagnitude;
 
-        if (distance <= attackDistance && !saldırıyor && yasam == true)
+        if (distance <= attackDistance && !saldiriyor && yasam == true)
         {
             if (IsObjectInFront())
             {
@@ -242,7 +242,17 @@ public class HW_Yapay_Zeka : MonoBehaviour
         }
         if (distance > attackDistance)
         {
-            StartCoroutine(MoveToTarget(closestObject.transform.position));
+             if (IsObjectInFront())
+            {
+                // En uygun yönü bul
+                Vector3 bestDirection = FindBestDirection();
+                Vector3 newTarget = transform.position + bestDirection * 100.0f; // 50 birim kadar uzaklık
+                StartCoroutine(MoveToTarget(newTarget));
+            }
+            else
+            {
+                StartCoroutine(MoveToTarget(closestObject.transform.position));
+            }
         }
     }
 
@@ -260,38 +270,38 @@ public class HW_Yapay_Zeka : MonoBehaviour
         return false;
     }
 
-private Vector3 FindBestDirection()
-{
-    Vector3 bestDirection = Vector3.zero;
-    float maxDistance = 0f;
-
-    // Hedef objenin yönünü hesapla
-    Vector3 targetDirection = (closestObject.transform.position - transform.position).normalized;
-
-    // Belirli açılarla yönleri kontrol et
-    for (int angle = -90; angle <= 90; angle += 20) 
+    private Vector3 FindBestDirection()
     {
-        Vector3 direction = Quaternion.Euler(0, angle, 0) * targetDirection;
+        Vector3 bestDirection = Vector3.zero;
+        float maxDistance = 0f;
 
-        // Raycast yaparak bu yönde engel olup olmadığını kontrol et
-        if (Physics.Raycast(transform.position, direction, out RaycastHit hit, attackDistance))
+        // Hedef objenin yönünü hesapla
+        Vector3 targetDirection = (closestObject.transform.position - transform.position).normalized;
+
+        // Belirli açılarla yönleri kontrol et
+        for (int angle = -90; angle <= 90; angle += 20) 
         {
-            // Eğer bu yön, en uzak mesafedeki engelle çarpışıyorsa ve hedefle aynı tag'a sahip değilse en iyi yön olarak belirle
-            if (hit.distance > maxDistance && !hit.collider.gameObject.CompareTag(gameObject.tag))
+            Vector3 direction = Quaternion.Euler(0, angle, 0) * targetDirection;
+
+            // Raycast yaparak bu yönde engel olup olmadığını kontrol et
+            if (Physics.Raycast(transform.position, direction, out RaycastHit hit, attackDistance))
             {
-                maxDistance = hit.distance;
-                bestDirection = direction;
+                // Eğer bu yön, en uzak mesafedeki engelle çarpışıyorsa ve hedefle aynı tag'a sahip değilse en iyi yön olarak belirle
+                if (hit.distance > maxDistance && !hit.collider.gameObject.CompareTag(gameObject.tag))
+                {
+                    maxDistance = hit.distance;
+                    bestDirection = direction;
+                }
+            }
+            else // Eğer raycast hiçbir şeye çarpmadıysa, bu yön boş ve en iyi yön olabilir
+            {
+                return direction;
             }
         }
-        else // Eğer raycast hiçbir şeye çarpmadıysa, bu yön boş ve en iyi yön olabilir
-        {
-            return direction;
-        }
-    }
 
-    // Eğer en iyi yön bulunamadıysa, hedefe doğru yönel
-    return bestDirection == Vector3.zero ? targetDirection : bestDirection;
-}
+        // Eğer en iyi yön bulunamadıysa, hedefe doğru yönel
+        return bestDirection == Vector3.zero ? targetDirection : bestDirection;
+    }
 
     public void hasar_ver(float attack)
     {
