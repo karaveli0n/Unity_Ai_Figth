@@ -10,7 +10,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
     public string targetTag;
     public string Running_Anim;
     public string dead_Anim;
-
+    public string randomAttackAnim;
     public float distance;
     public float dovuscu_attack, kilicli_attack, okcu_attack, buyucu_attack;
     public float speed;
@@ -36,14 +36,17 @@ public class HW_Yapay_Zeka : MonoBehaviour
     public Renderer childRenderer;
     public Collider enemyCollider;
 
-    void Start()
+    void Awake()
     {
         yasam = true;
         childRenderer = GetComponentInChildren<Renderer>();
         animator = GetComponent<Animator>();
         navMeshAgent = GetComponent<NavMeshAgent>();
         enemyCollider = GetComponent<Collider>();
+    }
 
+    void Start()
+    {
         renk();
 
         dovuscu_attack = Random.Range(2, 9);
@@ -62,8 +65,10 @@ public class HW_Yapay_Zeka : MonoBehaviour
         navMeshAgent.acceleration = rotationSpeed;
 
         string[] runAnimations = { "Running", "Running_1", "Running_2" };
+        //string[] runAnimations = { "Running", "Slow Run", "Run" };
         Running_Anim = runAnimations[Random.Range(0, runAnimations.Length)];
         string[] run_dead_Animations = { "dead", "dead_1", "dead_2", "dead_3" };
+        //string[] run_dead_Animations = { "Knocked Out", "Sword And Shield Death", "Falling Back Death", "Dying Backwards" };        
         dead_Anim = run_dead_Animations[Random.Range(0, run_dead_Animations.Length)];
     }
 
@@ -137,7 +142,6 @@ public class HW_Yapay_Zeka : MonoBehaviour
         if (closestObject != null)
         {
             saldiriyor = true;
-            string randomAttackAnim;
 
             if (yasam)
             {
@@ -146,7 +150,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
                 string[] attackAnimations_2 = { "bow_arrow" };
                 string[] attackAnimations_3 = { "magic_attack_0", "magic_attack_1", "magic_attack_2", "magic_attack_3" };
                 /*string[] attackAnimations_0 = { "Hook Punch", "Uppercut", "Cross Punch", "Hook Punch (1)", "Uppercut (1)", "Cross Punch (1)" };
-                string[] attackAnimations_1 = { "Sword And Shield Slash 0", "Sword And Shield Slash 00", "Sword And Shield Slash 000", "Sword And Shield Slash" };
+                string[] attackAnimations_1 = { "Sword And Shield Slash", "Sword And Shield Slash (1)", "Sword And Shield Slash (2)", "Sword And Shield Slash (3)" };
                 string[] attackAnimations_2 = { "Shooting Arrow" };
                 string[] attackAnimations_3 = { "Standing 2H Magic Attack 01", "Standing 2H Magic Attack 02", "Standing 2H Magic Attack 02 (1)", "Standing 2H Magic Attack 05" };*/
 
@@ -208,17 +212,20 @@ public class HW_Yapay_Zeka : MonoBehaviour
 
     private IEnumerator PlayAnimation(string animasyonun_Adi)
     {
-        float animasyonun_uzunlugu = animator.GetCurrentAnimatorClipInfo(0)[0].clip.length;
-        float animasyonun_oldugu_sure = animator.GetCurrentAnimatorStateInfo(0).normalizedTime;
         if (animator.GetCurrentAnimatorStateInfo(0).IsName(animasyonun_Adi))
         {
-            if (animasyonun_oldugu_sure <= 1f)
+            if (animator.GetCurrentAnimatorStateInfo(0).normalizedTime <= 1f)
             {
                 yield break;
             }
         }
         animator.SetTrigger(animasyonun_Adi);
+        float animasyonun_uzunlugu = animator.GetCurrentAnimatorClipInfo(0)[0].clip.length;
+        //animator.Play(animasyonun_Adi);
         yield return new WaitForSeconds(animasyonun_uzunlugu);
+        animator.ResetTrigger(randomAttackAnim);
+        animator.ResetTrigger(Running_Anim);
+        animator.ResetTrigger(dead_Anim);
     }
 
     public void PerformActions()
@@ -232,7 +239,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
             {
                 // En uygun yönü bul
                 Vector3 bestDirection = FindBestDirection();
-                Vector3 newTarget = transform.position + bestDirection * 100.0f; // 50 birim kadar uzaklık
+                Vector3 newTarget = transform.position + bestDirection * 100.0f; // 100 birim kadar uzaklık
                 StartCoroutine(MoveToTarget(newTarget));
             }
             else
@@ -240,13 +247,13 @@ public class HW_Yapay_Zeka : MonoBehaviour
                 StartCoroutine(StartAttack());
             }
         }
-        if (distance > attackDistance)
+        else if (distance > attackDistance)
         {
-             if (IsObjectInFront())
+            if (IsObjectInFront())
             {
                 // En uygun yönü bul
                 Vector3 bestDirection = FindBestDirection();
-                Vector3 newTarget = transform.position + bestDirection * 100.0f; // 50 birim kadar uzaklık
+                Vector3 newTarget = transform.position + bestDirection * 100.0f; // 100 birim kadar uzaklık
                 StartCoroutine(MoveToTarget(newTarget));
             }
             else
@@ -254,6 +261,39 @@ public class HW_Yapay_Zeka : MonoBehaviour
                 StartCoroutine(MoveToTarget(closestObject.transform.position));
             }
         }
+    }
+
+    private Vector3 FindBestDirection()
+    {
+        Vector3 bestDirection = Vector3.zero;
+        float maxDistance = 0f;
+
+        // Hedef objenin yönünü hesapla
+        Vector3 targetDirection = (closestObject.transform.position - transform.position).normalized;
+
+        // Belirli açılarla yönleri kontrol et
+        for (int angle = -90; angle <= 90; angle += 20)
+        {
+            Vector3 direction = Quaternion.Euler(0, angle, 0) * targetDirection;
+
+            // Raycast yaparak bu yönde engel olup olmadığını kontrol et
+            if (Physics.Raycast(transform.position, direction, out RaycastHit hit, attackDistance))
+            {
+                // Eğer bu yön, en uzak mesafedeki engelle çarpışıyorsa ve hedefle aynı tag'a sahip değilse en iyi yön olarak belirle
+                if (hit.distance > maxDistance && !hit.collider.gameObject.CompareTag(gameObject.tag))
+                {                 
+                        maxDistance = hit.distance;
+                        bestDirection = direction;                    
+                }
+            }
+            else // Eğer raycast hiçbir şeye çarpmadıysa, bu yön boş ve en iyi yön olabilir
+            {               
+                    return direction;               
+            }
+        }
+
+        // Eğer en iyi yön bulunamadıysa, hedefe doğru yönel
+        return bestDirection == Vector3.zero ? targetDirection : bestDirection;
     }
 
     private bool IsObjectInFront()
@@ -268,39 +308,6 @@ public class HW_Yapay_Zeka : MonoBehaviour
             }
         }
         return false;
-    }
-
-    private Vector3 FindBestDirection()
-    {
-        Vector3 bestDirection = Vector3.zero;
-        float maxDistance = 0f;
-
-        // Hedef objenin yönünü hesapla
-        Vector3 targetDirection = (closestObject.transform.position - transform.position).normalized;
-
-        // Belirli açılarla yönleri kontrol et
-        for (int angle = -90; angle <= 90; angle += 20) 
-        {
-            Vector3 direction = Quaternion.Euler(0, angle, 0) * targetDirection;
-
-            // Raycast yaparak bu yönde engel olup olmadığını kontrol et
-            if (Physics.Raycast(transform.position, direction, out RaycastHit hit, attackDistance))
-            {
-                // Eğer bu yön, en uzak mesafedeki engelle çarpışıyorsa ve hedefle aynı tag'a sahip değilse en iyi yön olarak belirle
-                if (hit.distance > maxDistance && !hit.collider.gameObject.CompareTag(gameObject.tag))
-                {
-                    maxDistance = hit.distance;
-                    bestDirection = direction;
-                }
-            }
-            else // Eğer raycast hiçbir şeye çarpmadıysa, bu yön boş ve en iyi yön olabilir
-            {
-                return direction;
-            }
-        }
-
-        // Eğer en iyi yön bulunamadıysa, hedefe doğru yönel
-        return bestDirection == Vector3.zero ? targetDirection : bestDirection;
     }
 
     public void hasar_ver(float attack)
@@ -391,7 +398,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
     }
 
     private IEnumerator Dead()
-    {
+    {   
         yasam = false;
         yield return StartCoroutine(PlayAnimation(dead_Anim));
         Destroy(this.gameObject);
@@ -412,6 +419,7 @@ public class HW_Yapay_Zeka : MonoBehaviour
             navMeshAgent.speed = Mathf.Floor(speed * 0.5f);
             navMeshAgent.acceleration = Mathf.Floor(rotationSpeed * 10f);
             yield return StartCoroutine(PlayAnimation("Running_2"));
+            //yield return StartCoroutine(PlayAnimation("Slow Run"));
         }
     }
 
